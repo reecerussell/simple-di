@@ -28,7 +28,8 @@ func TestContainer_AddService(t *testing.T) {
 	name := "myService"
 
 	ctn := NewContainer()
-	ctn.AddService(name, builder)
+	sb := ctn.AddService(name, builder)
+	assert.NotNil(t, sb)
 
 	srv, ok := ctn.srvConf[name]
 	assert.True(t, ok)
@@ -42,7 +43,8 @@ func TestContainer_AddSingleton(t *testing.T) {
 	name := "myService"
 
 	ctn := NewContainer()
-	ctn.AddSingleton(name, builder)
+	sb := ctn.AddSingleton(name, builder)
+	assert.NotNil(t, sb)
 
 	srv, ok := ctn.srvConf[name]
 	assert.True(t, ok)

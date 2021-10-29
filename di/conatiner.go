@@ -45,18 +45,27 @@ func (ctn *Container) GetService(name string) interface{} {
 }
 
 // AddService adds a new service definition to the container.
-func (ctn *Container) AddService(name string, builder BuildFunc) {
-	ctn.addService(name, false, builder)
+func (ctn *Container) AddService(name string, builder BuildFunc) *ServiceBuilder {
+	return ctn.addService(name, false, builder)
 }
 
 // AddSingleton adds a new singleton service definition to the container.
-func (ctn *Container) AddSingleton(name string, builder BuildFunc) {
-	ctn.addService(name, true, builder)
+func (ctn *Container) AddSingleton(name string, builder BuildFunc) *ServiceBuilder {
+	return ctn.addService(name, true, builder)
 }
 
-func (ctn *Container) addService(name string, singleton bool, builder BuildFunc) {
-	ctn.srvConf[name] = &ServiceConfig{
+func (ctn *Container) addService(name string, singleton bool, builder BuildFunc) *ServiceBuilder {
+	s := &ServiceConfig{
 		Singleton: singleton,
 		Build:     builder,
 	}
+	ctn.srvConf[name] = s
+
+	return &ServiceBuilder{s: s}
+}
+
+// ServiceBuilder is a type used to provide a fluent-like API
+// when adding a service to the container.
+type ServiceBuilder struct {
+	s *ServiceConfig
 }
