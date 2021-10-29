@@ -1,9 +1,13 @@
 package di
 
-import "context"
+import (
+	"context"
+	"sync"
+)
 
 // Container is a simple dependency injection container.
 type Container struct {
+	mu      *sync.Mutex
 	srvs    map[string]interface{}
 	srvConf map[string]*ServiceConfig
 }
@@ -11,6 +15,7 @@ type Container struct {
 // NewContainer returns a new Container.
 func NewContainer() *Container {
 	return &Container{
+		mu:      &sync.Mutex{},
 		srvs:    make(map[string]interface{}),
 		srvConf: make(map[string]*ServiceConfig),
 	}
@@ -31,6 +36,9 @@ type ServiceConfig struct {
 
 // GetService attempts to resolve a service by name.
 func (ctn *Container) GetService(name string) interface{} {
+	ctn.mu.Lock()
+	defer ctn.mu.Unlock()
+
 	conf, ok := ctn.srvConf[name]
 	if !ok {
 		panic("unable to resolve service: " + name)
@@ -61,6 +69,9 @@ func (ctn *Container) AddSingleton(name string, builder BuildFunc) *ServiceBuild
 }
 
 func (ctn *Container) addService(name string, singleton bool, builder BuildFunc) *ServiceBuilder {
+	ctn.mu.Lock()
+	defer ctn.mu.Unlock()
+
 	s := &ServiceConfig{
 		Singleton: singleton,
 		Build:     builder,
@@ -68,6 +79,27 @@ func (ctn *Container) addService(name string, singleton bool, builder BuildFunc)
 	ctn.srvConf[name] = s
 
 	return &ServiceBuilder{s: s}
+}
+
+// Clean is used to clean up the services in the container. Once,
+// this func has been called, the container can still be used and services
+// built. However, this is intended to be called at the end of a program.
+//
+// If a service has a DisposeFunc, this will be called before it is removed
+// from the container. However, if there is no DisposeFunc, the service will
+// just be removed.
+func (ctn *Container) Clean(ctx context.Context) {
+	ctn.mu.Lock()
+	defer ctn.mu.Unlock()
+
+	for name, value := range ctn.srvs {
+		cnf := ctn.srvConf[name]
+		if cnf.Dispose != nil {
+			cnf.Dispose(ctx, value)
+		}
+
+		delete(ctn.srvs, name)
+	}
 }
 
 // ServiceBuilder is a type used to provide a fluent-like API

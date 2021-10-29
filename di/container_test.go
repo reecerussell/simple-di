@@ -8,10 +8,7 @@ import (
 )
 
 func TestContainer_GetNonExistantService_Panics(t *testing.T) {
-	ctn := &Container{
-		srvs:    make(map[string]interface{}),
-		srvConf: make(map[string]*ServiceConfig),
-	}
+	ctn := NewContainer()
 
 	defer func() {
 		if r := recover(); r == nil {
@@ -53,10 +50,7 @@ func TestContainer_AddSingleton(t *testing.T) {
 }
 
 func TestContainer_SingletonNotRecreated(t *testing.T) {
-	ctn := &Container{
-		srvs:    make(map[string]interface{}),
-		srvConf: make(map[string]*ServiceConfig),
-	}
+	ctn := NewContainer()
 
 	ctn.srvConf["test"] = &ServiceConfig{
 		Singleton: true,
@@ -75,10 +69,7 @@ func TestContainer_SingletonNotRecreated(t *testing.T) {
 }
 
 func TestContainer_TransientIsRecreated(t *testing.T) {
-	ctn := &Container{
-		srvs:    make(map[string]interface{}),
-		srvConf: make(map[string]*ServiceConfig),
-	}
+	ctn := NewContainer()
 
 	ctn.srvConf["test"] = &ServiceConfig{
 		Singleton: false,
@@ -94,6 +85,33 @@ func TestContainer_TransientIsRecreated(t *testing.T) {
 	if srv == srv2 {
 		t.Error("Expected the services to not be equal")
 	}
+}
+
+func TestContainer_Clean(t *testing.T) {
+	hasBeenDisposed := false
+	testCtx := context.Background()
+	testValue := "My String"
+
+	ctn := NewContainer()
+	ctn.AddSingleton("MyService", func(ctn *Container) interface{} {
+		return testValue
+	}).Dispose(func(ctx context.Context, i interface{}) {
+		assert.Equal(t, testCtx, ctx)
+		assert.Equal(t, testValue, i)
+
+		// Proves that the dispose has only been called once.
+		assert.False(t, hasBeenDisposed)
+
+		hasBeenDisposed = true
+	})
+
+	// Builds the service
+	_ = ctn.GetService("MyService")
+
+	ctn.Clean(testCtx)
+
+	assert.True(t, hasBeenDisposed)
+	assert.Nil(t, ctn.srvs["MyService"])
 }
 
 func TestServiceBuilder_Dispose(t *testing.T) {
