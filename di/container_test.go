@@ -94,3 +94,12 @@ func TestContainer_TransientIsRecreated(t *testing.T) {
 		t.Error("Expected the services to not be equal")
 	}
 }
+
+func TestServiceBuilder_Dispose(t *testing.T) {
+	s := &ServiceConfig{Dispose: nil}
+	b := &ServiceBuilder{s: s}
+
+	r := b.Dispose(func(i interface{}) {})
+	assert.Equal(t, b, r)
+	assert.NotNil(t, s.Dispose)
+}

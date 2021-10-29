@@ -17,10 +17,14 @@ func NewContainer() *Container {
 // BuildFunc is a function used to build a service.
 type BuildFunc func(ctn *Container) interface{}
 
+// DisposeFunc is a function used to clean and dispose a service.
+type DisposeFunc func(s interface{})
+
 // ServiceConfig represents a service within the Container.
 type ServiceConfig struct {
 	Singleton bool
 	Build     BuildFunc
+	Dispose   DisposeFunc
 }
 
 // GetService attempts to resolve a service by name.
@@ -68,4 +72,11 @@ func (ctn *Container) addService(name string, singleton bool, builder BuildFunc)
 // when adding a service to the container.
 type ServiceBuilder struct {
 	s *ServiceConfig
+}
+
+// Dispose is used to configure a function used to dispose the service.
+func (b *ServiceBuilder) Dispose(f DisposeFunc) *ServiceBuilder {
+	b.s.Dispose = f
+
+	return b
 }
