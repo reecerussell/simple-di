@@ -1,5 +1,7 @@
 package di
 
+import "context"
+
 // Container is a simple dependency injection container.
 type Container struct {
 	srvs    map[string]interface{}
@@ -18,7 +20,7 @@ func NewContainer() *Container {
 type BuildFunc func(ctn *Container) interface{}
 
 // DisposeFunc is a function used to clean and dispose a service.
-type DisposeFunc func(s interface{})
+type DisposeFunc func(ctx context.Context, i interface{})
 
 // ServiceConfig represents a service within the Container.
 type ServiceConfig struct {

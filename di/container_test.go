@@ -1,6 +1,7 @@
 package di
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -99,7 +100,7 @@ func TestServiceBuilder_Dispose(t *testing.T) {
 	s := &ServiceConfig{Dispose: nil}
 	b := &ServiceBuilder{s: s}
 
-	r := b.Dispose(func(i interface{}) {})
+	r := b.Dispose(func(ctx context.Context, i interface{}) {})
 	assert.Equal(t, b, r)
 	assert.NotNil(t, s.Dispose)
 }
