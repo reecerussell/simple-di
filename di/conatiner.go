@@ -7,7 +7,7 @@ import (
 
 // Container is a simple dependency injection container.
 type Container struct {
-	mu      *sync.Mutex
+	mu      *sync.RWMutex
 	srvs    map[string]interface{}
 	srvConf map[string]*ServiceConfig
 }
@@ -15,7 +15,7 @@ type Container struct {
 // NewContainer returns a new Container.
 func NewContainer() *Container {
 	return &Container{
-		mu:      &sync.Mutex{},
+		mu:      &sync.RWMutex{},
 		srvs:    make(map[string]interface{}),
 		srvConf: make(map[string]*ServiceConfig),
 	}
@@ -36,8 +36,8 @@ type ServiceConfig struct {
 
 // GetService attempts to resolve a service by name.
 func (ctn *Container) GetService(name string) interface{} {
-	ctn.mu.Lock()
-	defer ctn.mu.Unlock()
+	ctn.mu.RLock()
+	defer ctn.mu.RUnlock()
 
 	conf, ok := ctn.srvConf[name]
 	if !ok {
