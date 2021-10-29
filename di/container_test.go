@@ -87,6 +87,28 @@ func TestContainer_TransientIsRecreated(t *testing.T) {
 	}
 }
 
+func TestContainer_WithDependentService(t *testing.T) {
+	ctn := NewContainer()
+
+	ctn.srvConf["text1"] = &ServiceConfig{
+		Singleton: false,
+		Build: func(ctn *Container) interface{} {
+			return "World"
+		},
+	}
+
+	ctn.srvConf["text2"] = &ServiceConfig{
+		Singleton: false,
+		Build: func(ctn *Container) interface{} {
+			w := ctn.GetService("text1").(string)
+			return "Hello " + w
+		},
+	}
+
+	t2 := ctn.GetService("text2")
+	assert.Equal(t, "Hello World", t2)
+}
+
 func TestContainer_Clean(t *testing.T) {
 	hasBeenDisposed := false
 	testCtx := context.Background()
