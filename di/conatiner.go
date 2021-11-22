@@ -2,83 +2,85 @@ package di
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"sync"
 )
 
 // Container is a simple dependency injection container.
 type Container struct {
-	mu      *sync.RWMutex
-	srvs    map[string]interface{}
-	srvConf map[string]*ServiceConfig
+	mu       *sync.RWMutex
+	services []*Service
 }
 
 // NewContainer returns a new Container.
 func NewContainer() *Container {
 	return &Container{
-		mu:      &sync.RWMutex{},
-		srvs:    make(map[string]interface{}),
-		srvConf: make(map[string]*ServiceConfig),
+		mu:       &sync.RWMutex{},
+		services: make([]*Service, 0),
 	}
 }
 
-// BuildFunc is a function used to build a service.
-type BuildFunc func(ctn *Container) interface{}
-
-// DisposeFunc is a function used to clean and dispose a service.
-type DisposeFunc func(ctx context.Context, i interface{})
-
-// ServiceConfig represents a service within the Container.
-type ServiceConfig struct {
-	Singleton bool
-	Build     BuildFunc
-	Dispose   DisposeFunc
-}
-
-// GetService attempts to resolve a service by name.
+// GetService is used to resolve a service by name. If the service
+// does not exist, it will panic.
+//
+// This function panics instead of returning an error, so that it
+// can be called inline, without the extra bulk of handling an error.
 func (ctn *Container) GetService(name string) interface{} {
 	ctn.mu.RLock()
 	defer ctn.mu.RUnlock()
 
-	conf, ok := ctn.srvConf[name]
-	if !ok {
-		panic("unable to resolve service: " + name)
+	for _, s := range ctn.services {
+		if s.name != name {
+			continue
+		}
+
+		v, err := s.build(ctn)
+		if err != nil {
+			panic(fmt.Errorf("container: failed to build %s, %v", s.Name(), err))
+		}
+
+		return v
 	}
 
-	srv, ok := ctn.srvs[name]
-	if conf.Singleton && ok {
-		return srv
+	panic(fmt.Errorf("container: could not find service, %s", name))
+}
+
+// getService is an internal function used to resolve a service by its type.
+// This is used by Service.build() to resolve dependencies.
+func (ctn *Container) getService(t reflect.Type) (interface{}, error) {
+	ctn.mu.RLock()
+	defer ctn.mu.RUnlock()
+
+	for _, s := range ctn.services {
+		if s.typ != t {
+			continue
+		}
+
+		v, err := s.build(ctn)
+		if err != nil {
+			return nil, fmt.Errorf("container: failed to build %s, %v", s.Name(), err)
+		}
+
+		return v, nil
 	}
 
-	impl := conf.Build(ctn)
-
-	if conf.Singleton {
-		ctn.srvs[name] = impl
-	}
-
-	return impl
+	return nil, fmt.Errorf("container: failed to resolve %s", t.Name())
 }
 
-// AddService adds a new service definition to the container.
-func (ctn *Container) AddService(name string, builder BuildFunc) *ServiceBuilder {
-	return ctn.addService(name, false, builder)
-}
-
-// AddSingleton adds a new singleton service definition to the container.
-func (ctn *Container) AddSingleton(name string, builder BuildFunc) *ServiceBuilder {
-	return ctn.addService(name, true, builder)
-}
-
-func (ctn *Container) addService(name string, singleton bool, builder BuildFunc) *ServiceBuilder {
+// AddService adds a new service definition to the container. The ctor argument
+// should be the constructor function, which is used to build the service.
+//
+// A constructor function can contain an range of arguments, however, either
+// return an interface, or an interface and error: func() MyService or
+// func() (MyService, error).
+func (ctn *Container) AddService(ctor interface{}) *Service {
 	ctn.mu.Lock()
 	defer ctn.mu.Unlock()
 
-	s := &ServiceConfig{
-		Singleton: singleton,
-		Build:     builder,
-	}
-	ctn.srvConf[name] = s
-
-	return &ServiceBuilder{s: s}
+	s := NewService(ctor)
+	ctn.services = append(ctn.services, s)
+	return s
 }
 
 // Clean is used to clean up the services in the container. Once,
@@ -92,25 +94,7 @@ func (ctn *Container) Clean(ctx context.Context) {
 	ctn.mu.Lock()
 	defer ctn.mu.Unlock()
 
-	for name, value := range ctn.srvs {
-		cnf := ctn.srvConf[name]
-		if cnf.Dispose != nil {
-			cnf.Dispose(ctx, value)
-		}
-
-		delete(ctn.srvs, name)
+	for _, s := range ctn.services {
+		s.Dispose(ctx)
 	}
-}
-
-// ServiceBuilder is a type used to provide a fluent-like API
-// when adding a service to the container.
-type ServiceBuilder struct {
-	s *ServiceConfig
-}
-
-// Dispose is used to configure a function used to dispose the service.
-func (b *ServiceBuilder) Dispose(f DisposeFunc) *ServiceBuilder {
-	b.s.Dispose = f
-
-	return b
 }
