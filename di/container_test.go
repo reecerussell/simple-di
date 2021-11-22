@@ -7,64 +7,106 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestContainer_GetService(t *testing.T) {
-	t.Run("Where Service Exists", func(t *testing.T) {
-		ctor1 := func() *testDependency {
-			return &testDependency{}
+func TestContainer_GetNonExistantService_Panics(t *testing.T) {
+	ctn := NewContainer()
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("Expected panic")
 		}
-		ctor2 := func() *testDependency2 {
-			return &testDependency2{}
-		}
+	}()
 
-		ctn := NewContainer()
-		ctn.AddService(ctor1)
-		ctn.AddService(ctor2).SetName("MyService")
-
-		v, ok := ctn.GetService("MyService").(*testDependency2)
-		assert.NotNil(t, v)
-		assert.True(t, ok)
-	})
-
-	t.Run("Where Build Fails", func(t *testing.T) {
-		ctor := func() (*testDependency, error) {
-			return nil, assert.AnError
-		}
-
-		ctn := NewContainer()
-		ctn.AddService(ctor).SetName("MyService")
-
-		defer func() {
-			err := recover().(error)
-			assert.NotNil(t, err)
-			assert.Contains(t, err.Error(), assert.AnError.Error())
-		}()
-
-		// Should panic
-		_ = ctn.GetService("MyService")
-	})
-
-	t.Run("Where The Service Does Not Exist", func(t *testing.T) {
-		ctn := NewContainer()
-
-		defer func() {
-			if r := recover(); r == nil {
-				t.Errorf("Expected panic")
-			}
-		}()
-
-		_ = ctn.GetService("MyService")
-	})
+	_ = ctn.GetService("myService")
 }
 
 func TestContainer_AddService(t *testing.T) {
-	ctor := func() interface{} {
+	builder := func(ctn *Container) interface{} {
 		return nil
 	}
+	name := "myService"
 
 	ctn := NewContainer()
-	s := ctn.AddService(ctor)
-	assert.NotNil(t, s)
-	assert.Same(t, s, ctn.services[0])
+	sb := ctn.AddService(name, builder)
+	assert.NotNil(t, sb)
+
+	srv, ok := ctn.srvConf[name]
+	assert.True(t, ok)
+	assert.False(t, srv.Singleton)
+}
+
+func TestContainer_AddSingleton(t *testing.T) {
+	builder := func(ctn *Container) interface{} {
+		return nil
+	}
+	name := "myService"
+
+	ctn := NewContainer()
+	sb := ctn.AddSingleton(name, builder)
+	assert.NotNil(t, sb)
+
+	srv, ok := ctn.srvConf[name]
+	assert.True(t, ok)
+	assert.True(t, srv.Singleton)
+}
+
+func TestContainer_SingletonNotRecreated(t *testing.T) {
+	ctn := NewContainer()
+
+	ctn.srvConf["test"] = &ServiceConfig{
+		Singleton: true,
+		Build: func(ctn *Container) interface{} {
+			srvValue := "My super cool service"
+			return &srvValue
+		},
+	}
+
+	srv := ctn.GetService("test")
+	srv2 := ctn.GetService("test")
+
+	if srv != srv2 {
+		t.Error("Expected the services to be equal")
+	}
+}
+
+func TestContainer_TransientIsRecreated(t *testing.T) {
+	ctn := NewContainer()
+
+	ctn.srvConf["test"] = &ServiceConfig{
+		Singleton: false,
+		Build: func(ctn *Container) interface{} {
+			srvValue := "My super cool service"
+			return &srvValue
+		},
+	}
+
+	srv := ctn.GetService("test")
+	srv2 := ctn.GetService("test")
+
+	if srv == srv2 {
+		t.Error("Expected the services to not be equal")
+	}
+}
+
+func TestContainer_WithDependentService(t *testing.T) {
+	ctn := NewContainer()
+
+	ctn.srvConf["text1"] = &ServiceConfig{
+		Singleton: false,
+		Build: func(ctn *Container) interface{} {
+			return "World"
+		},
+	}
+
+	ctn.srvConf["text2"] = &ServiceConfig{
+		Singleton: false,
+		Build: func(ctn *Container) interface{} {
+			w := ctn.GetService("text1").(string)
+			return "Hello " + w
+		},
+	}
+
+	t2 := ctn.GetService("text2")
+	assert.Equal(t, "Hello World", t2)
 }
 
 func TestContainer_Clean(t *testing.T) {
@@ -73,20 +115,17 @@ func TestContainer_Clean(t *testing.T) {
 	testValue := "My String"
 
 	ctn := NewContainer()
-	ctn.AddService(func() interface{} {
+	ctn.AddSingleton("MyService", func(ctn *Container) interface{} {
 		return testValue
-	}).
-		AsSingleton().
-		SetDispose(func(ctx context.Context, i interface{}) {
-			assert.Equal(t, testCtx, ctx)
-			assert.Equal(t, testValue, i)
+	}).Dispose(func(ctx context.Context, i interface{}) {
+		assert.Equal(t, testCtx, ctx)
+		assert.Equal(t, testValue, i)
 
-			// Proves that the dispose has only been called once.
-			assert.False(t, hasBeenDisposed)
+		// Proves that the dispose has only been called once.
+		assert.False(t, hasBeenDisposed)
 
-			hasBeenDisposed = true
-		}).
-		SetName("MyService")
+		hasBeenDisposed = true
+	})
 
 	// Builds the service
 	_ = ctn.GetService("MyService")
@@ -94,5 +133,14 @@ func TestContainer_Clean(t *testing.T) {
 	ctn.Clean(testCtx)
 
 	assert.True(t, hasBeenDisposed)
-	assert.Nil(t, ctn.services[0].impl)
+	assert.Nil(t, ctn.srvs["MyService"])
+}
+
+func TestServiceBuilder_Dispose(t *testing.T) {
+	s := &ServiceConfig{Dispose: nil}
+	b := &ServiceBuilder{s: s}
+
+	r := b.Dispose(func(ctx context.Context, i interface{}) {})
+	assert.Equal(t, b, r)
+	assert.NotNil(t, s.Dispose)
 }
