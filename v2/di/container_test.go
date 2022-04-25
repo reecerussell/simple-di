@@ -2,6 +2,7 @@ package di
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -53,6 +54,55 @@ func TestContainer_GetService(t *testing.T) {
 		}()
 
 		_ = ctn.GetService("MyService")
+	})
+}
+
+func TestContainer_GetServices(t *testing.T) {
+	t.Run("Where Services Exists", func(t *testing.T) {
+		srv1 := &testDependency{}
+		srv2 := &testDependency{}
+		ctor1 := func() *testDependency {
+			return srv1
+		}
+		ctor2 := func() *testDependency {
+			return srv2
+		}
+		ctor3 := func() *testDependency2 {
+			return &testDependency2{}
+		}
+
+		ctn := NewContainer()
+		ctn.AddService(ctor1)
+		ctn.AddService(ctor2)
+		ctn.AddService(ctor3)
+
+		arr := ctn.GetServices(reflect.TypeOf(&testDependency{}))
+		assert.ElementsMatch(t, arr, []interface{}{srv1, srv2})
+	})
+
+	t.Run("Where Build Fails", func(t *testing.T) {
+		ctor := func() (*testDependency, error) {
+			return nil, assert.AnError
+		}
+
+		ctn := NewContainer()
+		ctn.AddService(ctor).SetName("MyService")
+
+		defer func() {
+			err := recover().(error)
+			assert.NotNil(t, err)
+			assert.Contains(t, err.Error(), assert.AnError.Error())
+		}()
+
+		// Should panic
+		_ = ctn.GetServices(reflect.TypeOf(&testDependency{}))
+	})
+
+	t.Run("Where No Services Exist", func(t *testing.T) {
+		ctn := NewContainer()
+
+		arr := ctn.GetServices(reflect.TypeOf(&testDependency{}))
+		assert.Len(t, arr, 0)
 	})
 }
 
