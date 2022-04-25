@@ -68,6 +68,25 @@ func (ctn *Container) getService(t reflect.Type) (interface{}, error) {
 	return nil, fmt.Errorf("container: failed to resolve %s", t.Name())
 }
 
+// GetServices is used to retrievean array of services of a given type.
+func (ctn *Container) GetServices(t reflect.Type) []interface{} {
+	ctn.mu.RLock()
+	defer ctn.mu.RUnlock()
+
+	svcs := make([]interface{}, 0)
+	for _, s := range ctn.services {
+		if s.typ != t {
+			continue
+		}
+		v, err := s.build(ctn)
+		if err != nil {
+			panic(fmt.Errorf("container: failed to build %s, %v", s.Name(), err))
+		}
+		svcs = append(svcs, v)
+	}
+	return svcs
+}
+
 // AddService adds a new service definition to the container. The ctor argument
 // should be the constructor function, which is used to build the service.
 //
