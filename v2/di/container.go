@@ -117,3 +117,21 @@ func (ctn *Container) Clean(ctx context.Context) {
 		s.Dispose(ctx)
 	}
 }
+
+func (ctn *Container) getServiceInfo(name string) *Service {
+	ctn.mu.RLock()
+	defer ctn.mu.RUnlock()
+
+	for _, s := range ctn.services {
+		if s.name == name {
+			return s
+		}
+	}
+
+	panic(fmt.Errorf("container: could not find service, %s", name))
+}
+
+// CreateScope is used to create a scoped service provider.
+func (ctn *Container) CreateScope() *Scope {
+	return newScope(ctn)
+}

@@ -19,6 +19,11 @@ const (
 	// LifetimeTransient is used to define a Service as transient. Which
 	// means a new instance will be instantiated each time the service is resolved.
 	LifetimeTransient
+
+	// LifetimeScoped is used to define a Service as scope. Which means
+	// a new instance is created for an individual scope, then re-used
+	// in that scope.
+	LifetimeScoped
 )
 
 // DisposeFunc is a function used to clean and dispose a singleton service.
@@ -141,6 +146,13 @@ func (s *Service) AsSingleton() *Service {
 // AsTransient sets the lifetime of the service to Transient.
 func (s *Service) AsTransient() *Service {
 	s.lifetime = LifetimeTransient
+
+	return s
+}
+
+// AsScoped sets the lifetime of the service to Scoped.
+func (s *Service) AsScoped() *Service {
+	s.lifetime = LifetimeScoped
 
 	return s
 }
