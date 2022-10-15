@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func GetService_GivenType_ReturnsService(t *testing.T) {
+func TestGetService_GivenType_ReturnsService(t *testing.T) {
 	ctor := func() testDependency {
 		return testDependency{}
 	}
@@ -15,5 +15,17 @@ func GetService_GivenType_ReturnsService(t *testing.T) {
 	ctn.AddService(ctor)
 
 	v := GetService[testDependency](ctn)
+	assert.NotNil(t, v)
+}
+
+func TestGetService_GivenInterfaceType_ReturnsService(t *testing.T) {
+	ctor := func() TestService {
+		return testService{}
+	}
+
+	ctn := NewContainer()
+	ctn.AddService(ctor)
+
+	v := GetService[TestService](ctn)
 	assert.NotNil(t, v)
 }
