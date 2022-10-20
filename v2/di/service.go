@@ -157,7 +157,8 @@ func (s *Service) AsScoped() *Service {
 	return s
 }
 
-func (s *Service) build(ctn *Container) (interface{}, error) {
+// build is used to build a service as well as its dependency chain.
+func (s *Service) build(sp func(reflect.Type) (interface{}, error)) (interface{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -173,7 +174,7 @@ func (s *Service) build(ctn *Container) (interface{}, error) {
 
 	for i := 0; i < numIn; i++ {
 		arg := f.Type().In(i)
-		d, err := ctn.getService(arg)
+		d, err := sp(arg)
 		if err != nil {
 			return nil, err
 		}
