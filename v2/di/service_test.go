@@ -188,11 +188,11 @@ func TestService_Build(t *testing.T) {
 			lifetime: LifetimeTransient,
 		}
 
-		v1, err := s.build(ctn)
+		v1, err := s.build(ctn.getService)
 		assert.NotNil(t, v1)
 		assert.Nil(t, err)
 
-		v2, err := s.build(ctn)
+		v2, err := s.build(ctn.getService)
 		assert.NotNil(t, v2)
 		assert.Nil(t, err)
 
@@ -214,11 +214,11 @@ func TestService_Build(t *testing.T) {
 			lifetime: LifetimeSingleton,
 		}
 
-		v1, err := s.build(ctn)
+		v1, err := s.build(ctn.getService)
 		assert.NotNil(t, v1)
 		assert.Nil(t, err)
 
-		v2, err := s.build(ctn)
+		v2, err := s.build(ctn.getService)
 		assert.NotNil(t, v2)
 		assert.Nil(t, err)
 
@@ -237,7 +237,7 @@ func TestService_Build(t *testing.T) {
 			typ:  reflect.TypeOf(&testService{}),
 		}
 
-		v1, err := s.build(ctn)
+		v1, err := s.build(ctn.getService)
 		assert.Nil(t, v1)
 		assert.Equal(t, assert.AnError, err)
 	})
@@ -266,7 +266,7 @@ func TestService_Build(t *testing.T) {
 			lifetime: LifetimeSingleton,
 		}
 
-		v, err := s.build(ctn)
+		v, err := s.build(ctn.getService)
 		assert.NotNil(t, v)
 		assert.Nil(t, err)
 
@@ -298,7 +298,7 @@ func TestService_Build(t *testing.T) {
 			lifetime: LifetimeSingleton,
 		}
 
-		v, err := s.build(ctn)
+		v, err := s.build(ctn.getService)
 		assert.Nil(t, v)
 		assert.NotNil(t, err)
 	})
@@ -327,7 +327,7 @@ func TestService_Build(t *testing.T) {
 			lifetime: LifetimeSingleton,
 		}
 
-		v, err := s.build(ctn)
+		v, err := s.build(ctn.getService)
 		assert.Nil(t, v)
 		assert.Contains(t, err.Error(), assert.AnError.Error())
 	})

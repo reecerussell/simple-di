@@ -35,7 +35,7 @@ func (ctn *Container) GetService(name string) interface{} {
 			continue
 		}
 
-		v, err := s.build(ctn)
+		v, err := s.build(ctn.getService)
 		if err != nil {
 			panic(fmt.Errorf("container: failed to build %s, %v", s.Name(), err))
 		}
@@ -57,7 +57,7 @@ func (ctn *Container) getService(t reflect.Type) (interface{}, error) {
 			continue
 		}
 
-		v, err := s.build(ctn)
+		v, err := s.build(ctn.getService)
 		if err != nil {
 			return nil, fmt.Errorf("container: failed to build %s, %v", s.Name(), err)
 		}
@@ -78,7 +78,7 @@ func (ctn *Container) GetServices(t reflect.Type) []interface{} {
 		if s.typ != t {
 			continue
 		}
-		v, err := s.build(ctn)
+		v, err := s.build(ctn.getService)
 		if err != nil {
 			panic(fmt.Errorf("container: failed to build %s, %v", s.Name(), err))
 		}
@@ -133,5 +133,11 @@ func (ctn *Container) getServiceInfo(name string) *Service {
 
 // CreateScope is used to create a scoped service provider.
 func (ctn *Container) CreateScope() *Scope {
-	return newScope(ctn)
+	return ctn.CreateScopeWithContext(context.Background())
+}
+
+// CreateScopeWithContext is used to create a scope service provider,
+// with the given context.Context configured.
+func (ctn *Container) CreateScopeWithContext(ctx context.Context) *Scope {
+	return newScope(ctn, ctx)
 }
